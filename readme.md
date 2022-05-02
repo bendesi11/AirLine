@@ -11,3 +11,6 @@ flask run
 
 
 ezután client/index.html megnyitása
+
+
+Készült: 2022.05.
