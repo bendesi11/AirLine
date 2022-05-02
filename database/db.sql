@@ -1,0 +1,1131 @@
+DROP TABLE ticket CASCADE CONSTRAINTS;
+DROP TABLE airline CASCADE CONSTRAINTS;
+DROP TABLE airplane CASCADE CONSTRAINTS;
+DROP TABLE city CASCADE CONSTRAINTS;
+DROP TABLE customuser CASCADE CONSTRAINTS;
+DROP TABLE insurer CASCADE CONSTRAINTS;
+DROP TABLE trip CASCADE CONSTRAINTS;
+DROP TABLE recommended_insurance CASCADE CONSTRAINTS;
+DROP TABLE insurance CASCADE CONSTRAINTS;
+DROP TABLE hotel CASCADE CONSTRAINTS;
+
+CREATE TABLE airline (
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    name VARCHAR2(40) NOT NULL
+);
+
+
+CREATE TABLE insurer (
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    name VARCHAR2(40) NOT NULL
+);
+
+
+CREATE TABLE city (
+    id NUMBER(5) NOT NULL PRIMARY KEY,
+    name VARCHAR2(40) NOT NULL
+);
+
+
+CREATE TABLE customuser (
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    email VARCHAR2(40) NOT NULL, 
+    age NUMBER(5) NOT NULL, 
+    first_name VARCHAR2(40) NOT NULL, 
+    last_name VARCHAR2(40) NOT NULL, 
+    is_admin NUMBER(1) NOT NULL, 
+    password VARCHAR2(40) NOT NULL
+);
+
+
+CREATE TABLE hotel (
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    name VARCHAR2(40) NOT NULL, 
+    stars NUMBER(5) NOT NULL, 
+    city_id NUMBER(5) NOT NULL,
+    FOREIGN KEY(city_id) REFERENCES city(id) on delete cascade
+);
+
+
+CREATE TABLE airplane (
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    type VARCHAR2(40) NOT NULL, 
+    airline_id NUMBER(5) NOT NULL,
+    capacity NUMBER(5) NOT NULL, 
+    FOREIGN KEY(airline_id) REFERENCES airline(id) on delete cascade
+);
+
+
+CREATE TABLE trip (
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    from_city_id NUMBER(5) NOT NULL, 
+    to_city_id NUMBER(5) NOT NULL,
+    base_price NUMBER(10) NOT NULL, 
+    airplane_id NUMBER(5) NOT NULL,
+    has_food NUMBER(1) NOT NULL, 
+    takeoff_time DATE NOT NULL, 
+    landing_time DATE NOT NULL,
+    FOREIGN KEY(from_city_id) REFERENCES city (id) on delete cascade,
+    FOREIGN KEY(to_city_id) REFERENCES city (id) on delete cascade,
+    FOREIGN KEY(airplane_id) REFERENCES airplane (id) on delete cascade
+);
+
+
+CREATE TABLE ticket (
+    user_id NUMBER(5) NOT NULL, 
+    trip_id NUMBER(5) NOT NULL,
+    seat NUMBER(5) NOT NULL,
+    PRIMARY KEY(user_id,trip_id),
+    FOREIGN KEY(trip_id) REFERENCES trip(id) on delete cascade,
+    FOREIGN KEY(user_id) REFERENCES customuser(id) on delete cascade
+);
+
+
+CREATE TABLE recommended_insurance(
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    insurer_id NUMBER(5) NOT NULL,
+    trip_id NUMBER(5) NOT NULL,
+    name VARCHAR2(40) NOT NULL, 
+    base_price NUMBER(10) NOT NULL,
+    FOREIGN KEY(trip_id) REFERENCES trip(id) on delete cascade,
+    FOREIGN KEY(insurer_id) REFERENCES insurer(id) on delete cascade
+);
+
+
+CREATE TABLE insurance (
+    id NUMBER(5) NOT NULL PRIMARY KEY, 
+    user_id NUMBER(5) NOT NULL,
+    rec_insurance_id NUMBER(5) NOT NULL,
+    price NUMBER(5) NOT NULL, 
+    FOREIGN KEY(user_id) REFERENCES customuser(id) on delete cascade,
+    FOREIGN KEY(rec_insurance_id) REFERENCES recommended_insurance(id) on delete cascade
+
+);
+
+-----TRIGGERS-----
+
+DROP TABLE log_users CASCADE CONSTRAINTS;
+
+
+create table log_users(
+    username varchar2(20),
+    action varchar2(40),
+    action_date date
+);
+
+create or replace trigger logon_logging
+after LOGON on DATABASE
+begin
+    insert into log_users values(user,'Belépés az adatbázisba.',sysdate);
+end;
+/
+
+create or replace NONEDITIONABLE trigger logoff_logging
+before LOGOFF on DATABASE
+begin
+    insert into log_users values(user,'Kilépés az adatbázisból.',sysdate);
+end;
+/
+
+create or replace trigger unique_email
+before insert 
+on customuser
+for each row
+declare 
+    email number;
+begin
+    email := 0;
+    select count(*) into email 
+    from customuser 
+    where customuser.email = :new.email;
+    
+    if email > 0 then
+        raise_application_error('123','Az emailnek egyedinek kell lennie.');
+    end if;
+end;
+/
+
+create or replace trigger auto_increment_airplane
+before insert 
+on airplane
+for each row
+declare 
+    next_id number;
+begin
+    if :new.id is null then
+        select id into next_id from (select * from airplane order by id desc) where rownum = 1;
+        next_id := next_id + 1;
+        :new.id := next_id;
+    end if;
+end;
+/
+
+-----FUNCTIONS-----
+
+
+create or replace function avg_age 
+return number is
+    avg_age number;
+begin
+    select AVG(customuser.age) into avg_age 
+    from ticket, customuser 
+    where ticket.user_id = customuser.id;
+    return avg_age;
+end;
+/
+
+create or replace  function sum_trips_price 
+return number is
+    sum_price number;
+begin
+    select sum(trip.base_price)
+    into sum_price
+    from ticket, trip 
+    where ticket.trip_id = trip.id;
+    return sum_price;
+end;
+/
+
+-----INSERT DATA-----
+
+INSERT INTO CUSTOMUSER VALUES('0','a@a.com','56','Amy', 'Friley', '0', 'a');
+INSERT INTO CUSTOMUSER VALUES('1','QSVFoJzJVF@gmail.com','38','Maxie', 'Rowland', '0', 'XnvLRCRP');
+INSERT INTO CUSTOMUSER VALUES('2','LqSOYnKmle@gmail.com','17','John', 'Torkelson', '0', 'ZsapSBEa');
+INSERT INTO CUSTOMUSER VALUES('3','VTmVMghnin@gmail.com','45','Alexander', 'Ferguson', '0', 'EuWVsIRQ');
+INSERT INTO CUSTOMUSER VALUES('4','HpvgEAkYaq@gmail.com','17','Deborah', 'Walsh', '0', 'TBiInlYN');
+INSERT INTO CUSTOMUSER VALUES('5','CKSLsxwaEh@gmail.com','58','Clayton', 'Miller', '0', 'jdbeafYb');
+INSERT INTO CUSTOMUSER VALUES('6','NIYziqUUJI@gmail.com','31','Hazel', 'Orange', '0', 'yhuRmPsh');
+INSERT INTO CUSTOMUSER VALUES('7','upgqWEETbr@gmail.com','10','Matthew', 'Decena', '0', 'yBechJxk');
+INSERT INTO CUSTOMUSER VALUES('8','FrckkhUBrP@gmail.com','62','April', 'Miller', '0', 'ShNAURbj');
+INSERT INTO CUSTOMUSER VALUES('9','yDoSvRSaUU@gmail.com','53','Shirley', 'Quinones', '0', 'cAhwIrXb');
+INSERT INTO CUSTOMUSER VALUES('10','NaLDbknUlk@gmail.com','79','Rodney', 'Huizar', '0', 'UECuVEvg');
+INSERT INTO CUSTOMUSER VALUES('11','UftbadPYXP@gmail.com','22','Jordan', 'Paker', '0', 'OcQPZKdK');
+INSERT INTO CUSTOMUSER VALUES('12','IXwDKxvzWc@gmail.com','34','Armando', 'Oneill', '0', 'gxSWELjZ');
+INSERT INTO CUSTOMUSER VALUES('13','GTbjlkyflH@gmail.com','44','Julia', 'Corbin', '0', 'rKFFidhl');
+INSERT INTO CUSTOMUSER VALUES('14','YfliEZWeGP@gmail.com','46','John', 'Tinker', '0', 'gSseesUY');
+INSERT INTO CUSTOMUSER VALUES('15','ikzspInOuP@gmail.com','36','Christopher', 'Gloss', '0', 'WaDFJdxw');
+INSERT INTO CUSTOMUSER VALUES('16','DONWCnyfoN@gmail.com','23','Ruby', 'Ibanez', '0', 'iLIqqjQs');
+INSERT INTO CUSTOMUSER VALUES('17','vgeuglbORj@gmail.com','68','Carlos', 'Torres', '0', 'lHLRfsik');
+INSERT INTO CUSTOMUSER VALUES('18','cVhnXYJZvL@gmail.com','50','Ralph', 'Morris', '0', 'nTmFbHDM');
+INSERT INTO CUSTOMUSER VALUES('19','wMBTdkTeAh@gmail.com','58','Everett', 'Grant', '0', 'MBUYdZNZ');
+INSERT INTO CUSTOMUSER VALUES('20','GpXWVerZgV@gmail.com','9','Joseph', 'Taylor', '0', 'VUNOjtqy');
+INSERT INTO CUSTOMUSER VALUES('21','bcfKduVCsu@gmail.com','5','Donald', 'Shearer', '0', 'EIbDvApD');
+INSERT INTO CUSTOMUSER VALUES('22','iGiTTkVLVU@gmail.com','36','Erinn', 'Fowler', '0', 'ZcFFSkMm');
+INSERT INTO CUSTOMUSER VALUES('23','bItOYKQeOd@gmail.com','72','Gene', 'Grotts', '0', 'DNYukogL');
+INSERT INTO CUSTOMUSER VALUES('24','HsKpUPjYQy@gmail.com','67','Patricia', 'Jensen', '0', 'scNPqowK');
+INSERT INTO CUSTOMUSER VALUES('25','BswhWwPbBG@gmail.com','80','Margaret', 'Mccall', '0', 'pJmIOjYQ');
+INSERT INTO CUSTOMUSER VALUES('26','ilPywOOvWi@gmail.com','45','Yvette', 'Gonzales', '0', 'KGlsrjZY');
+INSERT INTO CUSTOMUSER VALUES('27','gDEhHXdWkJ@gmail.com','48','Joe', 'Givens', '0', 'FjwYVevt');
+INSERT INTO CUSTOMUSER VALUES('28','WyDrtROCrF@gmail.com','43','Karen', 'Hall', '0', 'HrtneYvy');
+INSERT INTO CUSTOMUSER VALUES('29','ZpigNRZIwj@gmail.com','56','Tommy', 'Garret', '0', 'vPsvLUdk');
+INSERT INTO CUSTOMUSER VALUES('30','cPSdNuHwDS@gmail.com','34','Brooke', 'Rabinowitz', '0', 'cvxFfFox');
+INSERT INTO CUSTOMUSER VALUES('31','OttJDcKXIv@gmail.com','35','Fred', 'Glanton', '0', 'ncbEQxiS');
+INSERT INTO CUSTOMUSER VALUES('32','tUTcLDHqnj@gmail.com','72','Melanie', 'Easter', '0', 'YRKsrLQf');
+INSERT INTO CUSTOMUSER VALUES('33','KsgjjfIMuj@gmail.com','42','Zachary', 'Munoz', '0', 'zruIIbKv');
+INSERT INTO CUSTOMUSER VALUES('34','ZkgRiPGUJw@gmail.com','30','Javier', 'Larrick', '0', 'FTJztqYi');
+INSERT INTO CUSTOMUSER VALUES('35','TcSDauHIkd@gmail.com','16','Eli', 'Ackman', '0', 'zUXgsAbv');
+INSERT INTO CUSTOMUSER VALUES('36','UJBFMYFcMB@gmail.com','64','Malcolm', 'Seese', '0', 'duhAeCZS');
+INSERT INTO CUSTOMUSER VALUES('37','KcFxTefbdP@gmail.com','18','Travis', 'Wison', '0', 'jJYKEvWl');
+INSERT INTO CUSTOMUSER VALUES('38','IBjWqcjOSP@gmail.com','16','Beulah', 'Mclain', '0', 'LYSXhRGm');
+INSERT INTO CUSTOMUSER VALUES('39','PqfDTRTZSe@gmail.com','16','Vicki', 'Yates', '0', 'jeDhzGOH');
+INSERT INTO CUSTOMUSER VALUES('40','iEewaPnOoz@gmail.com','65','Vivian', 'Glover', '0', 'qvJUvLke');
+INSERT INTO CUSTOMUSER VALUES('41','GpnxUwZMOG@gmail.com','6','Joseph', 'Pelletier', '0', 'EtimfroY');
+INSERT INTO CUSTOMUSER VALUES('42','SPAscgGIgC@gmail.com','7','Carmen', 'Martin', '0', 'xAaClEsk');
+INSERT INTO CUSTOMUSER VALUES('43','axqtKnghii@gmail.com','64','Vivian', 'Kadlec', '0', 'LGzHddaG');
+INSERT INTO CUSTOMUSER VALUES('44','eXmIioKAZz@gmail.com','80','Cheri', 'Chew', '0', 'qeAdcfXR');
+INSERT INTO CUSTOMUSER VALUES('45','mkkUOMtyfT@gmail.com','51','Eileen', 'Pittman', '0', 'kfpJyTYZ');
+INSERT INTO CUSTOMUSER VALUES('46','ZOoiSptPXs@gmail.com','30','Renita', 'Dunham', '0', 'YUEuSJaa');
+INSERT INTO CUSTOMUSER VALUES('47','VyzheHbdVa@gmail.com','45','Roy', 'Chambers', '0', 'MTJBYNnt');
+INSERT INTO CUSTOMUSER VALUES('48','yKrMlDsLkz@gmail.com','61','Josephine', 'Galdames', '0', 'BMaFnCNX');
+INSERT INTO CUSTOMUSER VALUES('49','rMWsjXVNCM@gmail.com','64','Todd', 'Mcdaniel', '0', 'zbygNxrt');
+INSERT INTO CITY VALUES('0','Aberdeen');
+INSERT INTO CITY VALUES('1','Abilene');
+INSERT INTO CITY VALUES('2','Akron');
+INSERT INTO CITY VALUES('3','Albany');
+INSERT INTO CITY VALUES('4','Albuquerque');
+INSERT INTO CITY VALUES('5','Alexandria');
+INSERT INTO CITY VALUES('6','Allentown');
+INSERT INTO CITY VALUES('7','Amarillo');
+INSERT INTO CITY VALUES('8','Anaheim');
+INSERT INTO CITY VALUES('9','Anchorage');
+INSERT INTO CITY VALUES('10','Ann Arbor');
+INSERT INTO CITY VALUES('11','Antioch');
+INSERT INTO CITY VALUES('12','Apple Valley');
+INSERT INTO CITY VALUES('13','Appleton');
+INSERT INTO CITY VALUES('14','Arlington');
+INSERT INTO CITY VALUES('15','Arvada');
+INSERT INTO CITY VALUES('16','Asheville');
+INSERT INTO CITY VALUES('17','Athens');
+INSERT INTO CITY VALUES('18','Atlanta');
+INSERT INTO CITY VALUES('19','Atlantic City');
+INSERT INTO CITY VALUES('20','Augusta');
+INSERT INTO CITY VALUES('21','Aurora');
+INSERT INTO CITY VALUES('22','Austin');
+INSERT INTO CITY VALUES('23','Bakersfield');
+INSERT INTO CITY VALUES('24','Baltimore');
+INSERT INTO CITY VALUES('25','Barnstable');
+INSERT INTO CITY VALUES('26','Baton Rouge');
+INSERT INTO CITY VALUES('27','Beaumont');
+INSERT INTO CITY VALUES('28','Bel Air');
+INSERT INTO CITY VALUES('29','Bellevue');
+INSERT INTO CITY VALUES('30','Berkeley');
+INSERT INTO CITY VALUES('31','Bethlehem');
+INSERT INTO CITY VALUES('32','Billings');
+INSERT INTO CITY VALUES('33','Birmingham');
+INSERT INTO CITY VALUES('34','Bloomington');
+INSERT INTO CITY VALUES('35','Boise');
+INSERT INTO CITY VALUES('36','Boise City');
+INSERT INTO CITY VALUES('37','Bonita Springs');
+INSERT INTO CITY VALUES('38','Boston');
+INSERT INTO CITY VALUES('39','Boulder');
+INSERT INTO CITY VALUES('40','Bradenton');
+INSERT INTO CITY VALUES('41','Bremerton');
+INSERT INTO CITY VALUES('42','Bridgeport');
+INSERT INTO CITY VALUES('43','Brighton');
+INSERT INTO CITY VALUES('44','Brownsville');
+INSERT INTO CITY VALUES('45','Bryan');
+INSERT INTO CITY VALUES('46','Buffalo');
+INSERT INTO CITY VALUES('47','Burbank');
+INSERT INTO CITY VALUES('48','Burlington');
+INSERT INTO CITY VALUES('49','Cambridge');
+INSERT INTO CITY VALUES('50','Canton');
+INSERT INTO CITY VALUES('51','Cape Coral');
+INSERT INTO CITY VALUES('52','Carrollton');
+INSERT INTO CITY VALUES('53','Cary');
+INSERT INTO CITY VALUES('54','Cathedral City');
+INSERT INTO CITY VALUES('55','Cedar Rapids');
+INSERT INTO CITY VALUES('56','Champaign');
+INSERT INTO CITY VALUES('57','Chandler');
+INSERT INTO CITY VALUES('58','Charleston');
+INSERT INTO CITY VALUES('59','Charlotte');
+INSERT INTO CITY VALUES('60','Chattanooga');
+INSERT INTO CITY VALUES('61','Chesapeake');
+INSERT INTO CITY VALUES('62','Chicago');
+INSERT INTO CITY VALUES('63','Chula Vista');
+INSERT INTO CITY VALUES('64','Cincinnati');
+INSERT INTO CITY VALUES('65','Clarke County');
+INSERT INTO CITY VALUES('66','Clarksville');
+INSERT INTO CITY VALUES('67','Clearwater');
+INSERT INTO CITY VALUES('68','Cleveland');
+INSERT INTO CITY VALUES('69','College Station');
+INSERT INTO CITY VALUES('70','Colorado Springs');
+INSERT INTO CITY VALUES('71','Columbia');
+INSERT INTO CITY VALUES('72','Columbus');
+INSERT INTO CITY VALUES('73','Concord');
+INSERT INTO CITY VALUES('74','Coral Springs');
+INSERT INTO CITY VALUES('75','Corona');
+INSERT INTO CITY VALUES('76','Corpus Christi');
+INSERT INTO CITY VALUES('77','Costa Mesa');
+INSERT INTO CITY VALUES('78','Dallas');
+INSERT INTO CITY VALUES('79','Daly City');
+INSERT INTO CITY VALUES('80','Danbury');
+INSERT INTO CITY VALUES('81','Davenport');
+INSERT INTO CITY VALUES('82','Davidson County');
+INSERT INTO CITY VALUES('83','Dayton');
+INSERT INTO CITY VALUES('84','Daytona Beach');
+INSERT INTO CITY VALUES('85','Deltona');
+INSERT INTO CITY VALUES('86','Denton');
+INSERT INTO CITY VALUES('87','Denver');
+INSERT INTO CITY VALUES('88','Des Moines');
+INSERT INTO CITY VALUES('89','Detroit');
+INSERT INTO CITY VALUES('90','Downey');
+INSERT INTO CITY VALUES('91','Duluth');
+INSERT INTO CITY VALUES('92','Durham');
+INSERT INTO CITY VALUES('93','El Monte');
+INSERT INTO CITY VALUES('94','El Paso');
+INSERT INTO CITY VALUES('95','Elizabeth');
+INSERT INTO CITY VALUES('96','Elk Grove');
+INSERT INTO CITY VALUES('97','Elkhart');
+INSERT INTO CITY VALUES('98','Erie');
+INSERT INTO CITY VALUES('99','Escondido');
+INSERT INTO CITY VALUES('100','Eugene');
+INSERT INTO CITY VALUES('101','Evansville');
+INSERT INTO CITY VALUES('102','Fairfield');
+INSERT INTO CITY VALUES('103','Fargo');
+INSERT INTO CITY VALUES('104','Fayetteville');
+INSERT INTO CITY VALUES('105','Fitchburg');
+INSERT INTO CITY VALUES('106','Flint');
+INSERT INTO CITY VALUES('107','Fontana');
+INSERT INTO CITY VALUES('108','Fort Collins');
+INSERT INTO CITY VALUES('109','Fort Lauderdale');
+INSERT INTO CITY VALUES('110','Fort Smith');
+INSERT INTO CITY VALUES('111','Fort Walton Beach');
+INSERT INTO CITY VALUES('112','Fort Wayne');
+INSERT INTO CITY VALUES('113','Fort Worth');
+INSERT INTO CITY VALUES('114','Frederick');
+INSERT INTO CITY VALUES('115','Fremont');
+INSERT INTO CITY VALUES('116','Fresno');
+INSERT INTO CITY VALUES('117','Fullerton');
+INSERT INTO CITY VALUES('118','Gainesville');
+INSERT INTO CITY VALUES('119','Garden Grove');
+INSERT INTO CITY VALUES('120','Garland');
+INSERT INTO CITY VALUES('121','Gastonia');
+INSERT INTO CITY VALUES('122','Gilbert');
+INSERT INTO CITY VALUES('123','Glendale');
+INSERT INTO CITY VALUES('124','Grand Prairie');
+INSERT INTO CITY VALUES('125','Grand Rapids');
+INSERT INTO CITY VALUES('126','Grayslake');
+INSERT INTO CITY VALUES('127','Green Bay');
+INSERT INTO CITY VALUES('128','GreenBay');
+INSERT INTO CITY VALUES('129','Greensboro');
+INSERT INTO CITY VALUES('130','Greenville');
+INSERT INTO CITY VALUES('131','Gulfport-Biloxi');
+INSERT INTO CITY VALUES('132','Hagerstown');
+INSERT INTO CITY VALUES('133','Hampton');
+INSERT INTO CITY VALUES('134','Harlingen');
+INSERT INTO CITY VALUES('135','Harrisburg');
+INSERT INTO CITY VALUES('136','Hartford');
+INSERT INTO CITY VALUES('137','Havre de Grace');
+INSERT INTO CITY VALUES('138','Hayward');
+INSERT INTO CITY VALUES('139','Hemet');
+INSERT INTO CITY VALUES('140','Henderson');
+INSERT INTO CITY VALUES('141','Hesperia');
+INSERT INTO CITY VALUES('142','Hialeah');
+INSERT INTO CITY VALUES('143','Hickory');
+INSERT INTO CITY VALUES('144','High Point');
+INSERT INTO CITY VALUES('145','Hollywood');
+INSERT INTO CITY VALUES('146','Honolulu');
+INSERT INTO CITY VALUES('147','Houma');
+INSERT INTO CITY VALUES('148','Houston');
+INSERT INTO CITY VALUES('149','Howell');
+INSERT INTO CITY VALUES('150','Huntington');
+INSERT INTO CITY VALUES('151','Huntington Beach');
+INSERT INTO CITY VALUES('152','Huntsville');
+INSERT INTO CITY VALUES('153','Independence');
+INSERT INTO CITY VALUES('154','Indianapolis');
+INSERT INTO CITY VALUES('155','Inglewood');
+INSERT INTO CITY VALUES('156','Irvine');
+INSERT INTO CITY VALUES('157','Irving');
+INSERT INTO CITY VALUES('158','Jackson');
+INSERT INTO CITY VALUES('159','Jacksonville');
+INSERT INTO CITY VALUES('160','Jefferson');
+INSERT INTO CITY VALUES('161','Jersey City');
+INSERT INTO CITY VALUES('162','Johnson City');
+INSERT INTO CITY VALUES('163','Joliet');
+INSERT INTO CITY VALUES('164','Kailua');
+INSERT INTO CITY VALUES('165','Kalamazoo');
+INSERT INTO CITY VALUES('166','Kaneohe');
+INSERT INTO CITY VALUES('167','Kansas City');
+INSERT INTO CITY VALUES('168','Kennewick');
+INSERT INTO CITY VALUES('169','Kenosha');
+INSERT INTO CITY VALUES('170','Killeen');
+INSERT INTO CITY VALUES('171','Kissimmee');
+INSERT INTO CITY VALUES('172','Knoxville');
+INSERT INTO CITY VALUES('173','Lacey');
+INSERT INTO CITY VALUES('174','Lafayette');
+INSERT INTO CITY VALUES('175','Lake Charles');
+INSERT INTO CITY VALUES('176','Lakeland');
+INSERT INTO CITY VALUES('177','Lakewood');
+INSERT INTO CITY VALUES('178','Lancaster');
+INSERT INTO CITY VALUES('179','Lansing');
+INSERT INTO CITY VALUES('180','Laredo');
+INSERT INTO CITY VALUES('181','Las Cruces');
+INSERT INTO CITY VALUES('182','Las Vegas');
+INSERT INTO CITY VALUES('183','Layton');
+INSERT INTO CITY VALUES('184','Leominster');
+INSERT INTO CITY VALUES('185','Lewisville');
+INSERT INTO CITY VALUES('186','Lexington');
+INSERT INTO CITY VALUES('187','Lincoln');
+INSERT INTO CITY VALUES('188','Little Rock');
+INSERT INTO CITY VALUES('189','Long Beach');
+INSERT INTO CITY VALUES('190','Lorain');
+INSERT INTO CITY VALUES('191','Los Angeles');
+INSERT INTO CITY VALUES('192','Louisville');
+INSERT INTO CITY VALUES('193','Lowell');
+INSERT INTO CITY VALUES('194','Lubbock');
+INSERT INTO CITY VALUES('195','Macon');
+INSERT INTO CITY VALUES('196','Madison');
+INSERT INTO CITY VALUES('197','Manchester');
+INSERT INTO CITY VALUES('198','Marina');
+INSERT INTO CITY VALUES('199','Marysville');
+INSERT INTO CITY VALUES('200','McAllen');
+INSERT INTO CITY VALUES('201','McHenry');
+INSERT INTO CITY VALUES('202','Medford');
+INSERT INTO CITY VALUES('203','Melbourne');
+INSERT INTO CITY VALUES('204','Memphis');
+INSERT INTO CITY VALUES('205','Merced');
+INSERT INTO CITY VALUES('206','Mesa');
+INSERT INTO CITY VALUES('207','Mesquite');
+INSERT INTO CITY VALUES('208','Miami');
+INSERT INTO CITY VALUES('209','Milwaukee');
+INSERT INTO CITY VALUES('210','Minneapolis');
+INSERT INTO CITY VALUES('211','Miramar');
+INSERT INTO CITY VALUES('212','Mission Viejo');
+INSERT INTO CITY VALUES('213','Mobile');
+INSERT INTO CITY VALUES('214','Modesto');
+INSERT INTO CITY VALUES('215','Monroe');
+INSERT INTO CITY VALUES('216','Monterey');
+INSERT INTO CITY VALUES('217','Montgomery');
+INSERT INTO CITY VALUES('218','Moreno Valley');
+INSERT INTO CITY VALUES('219','Murfreesboro');
+INSERT INTO CITY VALUES('220','Murrieta');
+INSERT INTO CITY VALUES('221','Muskegon');
+INSERT INTO CITY VALUES('222','Myrtle Beach');
+INSERT INTO CITY VALUES('223','Naperville');
+INSERT INTO CITY VALUES('224','Naples');
+INSERT INTO CITY VALUES('225','Nashua');
+INSERT INTO CITY VALUES('226','Nashville');
+INSERT INTO CITY VALUES('227','New Bedford');
+INSERT INTO CITY VALUES('228','New Haven');
+INSERT INTO CITY VALUES('229','New London');
+INSERT INTO CITY VALUES('230','New Orleans');
+INSERT INTO CITY VALUES('231','New York');
+INSERT INTO CITY VALUES('232','New York City');
+INSERT INTO CITY VALUES('233','Newark');
+INSERT INTO CITY VALUES('234','Newburgh');
+INSERT INTO CITY VALUES('235','Newport News');
+INSERT INTO CITY VALUES('236','Norfolk');
+INSERT INTO CITY VALUES('237','Normal');
+INSERT INTO CITY VALUES('238','Norman');
+INSERT INTO CITY VALUES('239','North Charleston');
+INSERT INTO CITY VALUES('240','North Las Vegas');
+INSERT INTO CITY VALUES('241','North Port');
+INSERT INTO CITY VALUES('242','Norwalk');
+INSERT INTO CITY VALUES('243','Norwich');
+INSERT INTO CITY VALUES('244','Oakland');
+INSERT INTO CITY VALUES('245','Ocala');
+INSERT INTO CITY VALUES('246','Oceanside');
+INSERT INTO CITY VALUES('247','Odessa');
+INSERT INTO CITY VALUES('248','Ogden');
+INSERT INTO CITY VALUES('249','Oklahoma City');
+INSERT INTO CITY VALUES('250','Olathe');
+INSERT INTO CITY VALUES('251','Olympia');
+INSERT INTO CITY VALUES('252','Omaha');
+INSERT INTO CITY VALUES('253','Ontario');
+INSERT INTO CITY VALUES('254','Orange');
+INSERT INTO CITY VALUES('255','Orem');
+INSERT INTO CITY VALUES('256','Orlando');
+INSERT INTO CITY VALUES('257','Overland Park');
+INSERT INTO CITY VALUES('258','Oxnard');
+INSERT INTO CITY VALUES('259','Palm Bay');
+INSERT INTO CITY VALUES('260','Palm Springs');
+INSERT INTO CITY VALUES('261','Palmdale');
+INSERT INTO CITY VALUES('262','Panama City');
+INSERT INTO CITY VALUES('263','Pasadena');
+INSERT INTO CITY VALUES('264','Paterson');
+INSERT INTO CITY VALUES('265','Pembroke Pines');
+INSERT INTO CITY VALUES('266','Pensacola');
+INSERT INTO CITY VALUES('267','Peoria');
+INSERT INTO CITY VALUES('268','Philadelphia');
+INSERT INTO CITY VALUES('269','Phoenix');
+INSERT INTO CITY VALUES('270','Pittsburgh');
+INSERT INTO CITY VALUES('271','Plano');
+INSERT INTO CITY VALUES('272','Pomona');
+INSERT INTO CITY VALUES('273','Pompano Beach');
+INSERT INTO CITY VALUES('274','Port Arthur');
+INSERT INTO CITY VALUES('275','Port Orange');
+INSERT INTO CITY VALUES('276','Port Saint Lucie');
+INSERT INTO CITY VALUES('277','Port St. Lucie');
+INSERT INTO CITY VALUES('278','Portland');
+INSERT INTO CITY VALUES('279','Portsmouth');
+INSERT INTO CITY VALUES('280','Poughkeepsie');
+INSERT INTO CITY VALUES('281','Providence');
+INSERT INTO CITY VALUES('282','Provo');
+INSERT INTO CITY VALUES('283','Pueblo');
+INSERT INTO CITY VALUES('284','Punta Gorda');
+INSERT INTO CITY VALUES('285','Racine');
+INSERT INTO CITY VALUES('286','Raleigh');
+INSERT INTO CITY VALUES('287','Rancho Cucamonga');
+INSERT INTO CITY VALUES('288','Reading');
+INSERT INTO CITY VALUES('289','Redding');
+INSERT INTO CITY VALUES('290','Reno');
+INSERT INTO CITY VALUES('291','Richland');
+INSERT INTO CITY VALUES('292','Richmond');
+INSERT INTO CITY VALUES('293','Richmond County');
+INSERT INTO CITY VALUES('294','Riverside');
+INSERT INTO CITY VALUES('295','Roanoke');
+INSERT INTO CITY VALUES('296','Rochester');
+INSERT INTO CITY VALUES('297','Rockford');
+INSERT INTO CITY VALUES('298','Roseville');
+INSERT INTO CITY VALUES('299','Round Lake Beach');
+INSERT INTO CITY VALUES('300','Sacramento');
+INSERT INTO CITY VALUES('301','Saginaw');
+INSERT INTO CITY VALUES('302','Saint Louis');
+INSERT INTO CITY VALUES('303','Saint Paul');
+INSERT INTO CITY VALUES('304','Saint Petersburg');
+INSERT INTO CITY VALUES('305','Salem');
+INSERT INTO CITY VALUES('306','Salinas');
+INSERT INTO CITY VALUES('307','Salt Lake City');
+INSERT INTO CITY VALUES('308','San Antonio');
+INSERT INTO CITY VALUES('309','San Bernardino');
+INSERT INTO CITY VALUES('310','San Buenaventura');
+INSERT INTO CITY VALUES('311','San Diego');
+INSERT INTO CITY VALUES('312','San Francisco');
+INSERT INTO CITY VALUES('313','San Jose');
+INSERT INTO CITY VALUES('314','Santa Ana');
+INSERT INTO CITY VALUES('315','Santa Barbara');
+INSERT INTO CITY VALUES('316','Santa Clara');
+INSERT INTO CITY VALUES('317','Santa Clarita');
+INSERT INTO CITY VALUES('318','Santa Cruz');
+INSERT INTO CITY VALUES('319','Santa Maria');
+INSERT INTO CITY VALUES('320','Santa Rosa');
+INSERT INTO CITY VALUES('321','Sarasota');
+INSERT INTO CITY VALUES('322','Savannah');
+INSERT INTO CITY VALUES('323','Scottsdale');
+INSERT INTO CITY VALUES('324','Scranton');
+INSERT INTO CITY VALUES('325','Seaside');
+INSERT INTO CITY VALUES('326','Seattle');
+INSERT INTO CITY VALUES('327','Sebastian');
+INSERT INTO CITY VALUES('328','Shreveport');
+INSERT INTO CITY VALUES('329','Simi Valley');
+INSERT INTO CITY VALUES('330','Sioux City');
+INSERT INTO CITY VALUES('331','Sioux Falls');
+INSERT INTO CITY VALUES('332','South Bend');
+INSERT INTO CITY VALUES('333','South Lyon');
+INSERT INTO CITY VALUES('334','Spartanburg');
+INSERT INTO CITY VALUES('335','Spokane');
+INSERT INTO CITY VALUES('336','Springdale');
+INSERT INTO CITY VALUES('337','Springfield');
+INSERT INTO CITY VALUES('338','St. Louis');
+INSERT INTO CITY VALUES('339','St. Paul');
+INSERT INTO CITY VALUES('340','St. Petersburg');
+INSERT INTO CITY VALUES('341','Stamford');
+INSERT INTO CITY VALUES('342','Sterling Heights');
+INSERT INTO CITY VALUES('343','Stockton');
+INSERT INTO CITY VALUES('344','Sunnyvale');
+INSERT INTO CITY VALUES('345','Syracuse');
+INSERT INTO CITY VALUES('346','Tacoma');
+INSERT INTO CITY VALUES('347','Tallahassee');
+INSERT INTO CITY VALUES('348','Tampa');
+INSERT INTO CITY VALUES('349','Temecula');
+INSERT INTO CITY VALUES('350','Tempe');
+INSERT INTO CITY VALUES('351','Thornton');
+INSERT INTO CITY VALUES('352','Thousand Oaks');
+INSERT INTO CITY VALUES('353','Toledo');
+INSERT INTO CITY VALUES('354','Topeka');
+INSERT INTO CITY VALUES('355','Torrance');
+INSERT INTO CITY VALUES('356','Trenton');
+INSERT INTO CITY VALUES('357','Tucson');
+INSERT INTO CITY VALUES('358','Tulsa');
+INSERT INTO CITY VALUES('359','Tuscaloosa');
+INSERT INTO CITY VALUES('360','Tyler');
+INSERT INTO CITY VALUES('361','Utica');
+INSERT INTO CITY VALUES('362','Vallejo');
+INSERT INTO CITY VALUES('363','Vancouver');
+INSERT INTO CITY VALUES('364','Vero Beach');
+INSERT INTO CITY VALUES('365','Victorville');
+INSERT INTO CITY VALUES('366','Virginia Beach');
+INSERT INTO CITY VALUES('367','Visalia');
+INSERT INTO CITY VALUES('368','Waco');
+INSERT INTO CITY VALUES('369','Warren');
+INSERT INTO CITY VALUES('370','Washington');
+INSERT INTO CITY VALUES('371','Waterbury');
+INSERT INTO CITY VALUES('372','Waterloo');
+INSERT INTO CITY VALUES('373','West Covina');
+INSERT INTO CITY VALUES('374','West Valley City');
+INSERT INTO CITY VALUES('375','Westminster');
+INSERT INTO CITY VALUES('376','Wichita');
+INSERT INTO CITY VALUES('377','Wilmington');
+INSERT INTO CITY VALUES('378','Winston');
+INSERT INTO CITY VALUES('379','Winter Haven');
+INSERT INTO CITY VALUES('380','Worcester');
+INSERT INTO CITY VALUES('381','Yakima');
+INSERT INTO CITY VALUES('382','Yonkers');
+INSERT INTO CITY VALUES('383','York');
+INSERT INTO CITY VALUES('384','Youngstown');
+INSERT INTO AIRLINE VALUES('0','Mango');
+INSERT INTO AIRLINE VALUES('1','Middle East Airlines');
+INSERT INTO AIRLINE VALUES('2','Virgin Australia');
+INSERT INTO AIRLINE VALUES('3','Vistara');
+INSERT INTO AIRLINE VALUES('4','Viva Aerobus');
+INSERT INTO AIRLINE VALUES('5','Volaris');
+INSERT INTO AIRLINE VALUES('6','American Airlines');
+INSERT INTO AIRLINE VALUES('7','United Airlines');
+INSERT INTO AIRLINE VALUES('8','Delta Air Lines');
+INSERT INTO AIRLINE VALUES('9','Spirit Airlines');
+INSERT INTO AIRLINE VALUES('10','Cape Air');
+INSERT INTO AIRLINE VALUES('11','Lufthansa');
+INSERT INTO AIRLINE VALUES('12','Aeroflot');
+INSERT INTO AIRLINE VALUES('13','Iberia');
+INSERT INTO AIRLINE VALUES('14','Shanghai Airlines');
+INSERT INTO AIRLINE VALUES('15','Silkair');
+INSERT INTO AIRLINE VALUES('16','Silver');
+INSERT INTO AIRLINE VALUES('17','Singapore Airlines');
+INSERT INTO AIRLINE VALUES('18','Skylanes');
+INSERT INTO AIRLINE VALUES('19','South African Airways');
+INSERT INTO AIRLINE VALUES('20','Southwest');
+INSERT INTO AIRLINE VALUES('21','SpiceJet');
+INSERT INTO AIRLINE VALUES('22','Spirit');
+INSERT INTO AIRLINE VALUES('23','Spring Airlines');
+INSERT INTO AIRLINE VALUES('24','Spring Japan');
+INSERT INTO AIRLINE VALUES('25','SriLankan Airlines');
+INSERT INTO AIRLINE VALUES('26','Sun Country');
+INSERT INTO AIRLINE VALUES('27','Air Baltic');
+INSERT INTO AIRLINE VALUES('28','Air Belgium');
+INSERT INTO AIRLINE VALUES('29','Air Canada');
+INSERT INTO AIRLINE VALUES('30','Air Caraibes');
+INSERT INTO AIRLINE VALUES('31','Air China');
+INSERT INTO AIRLINE VALUES('32','Air Corsica');
+INSERT INTO AIRLINE VALUES('33','Air Dolomiti');
+INSERT INTO AIRLINE VALUES('34','Air Europa');
+INSERT INTO AIRLINE VALUES('35','Air France');
+INSERT INTO AIRLINE VALUES('36','Air India');
+INSERT INTO AIRLINE VALUES('37','Air India Express');
+INSERT INTO AIRLINE VALUES('38','TAP Portugal');
+INSERT INTO AIRLINE VALUES('39','THAI');
+INSERT INTO AIRLINE VALUES('40','tigerair Australia');
+INSERT INTO AIRLINE VALUES('41','Transavia Airlines');
+INSERT INTO AIRLINE VALUES('42','TUI UK');
+INSERT INTO AIRLINE VALUES('43','TUIfly');
+INSERT INTO AIRLINE VALUES('44','Cathay Pacific');
+INSERT INTO AIRLINE VALUES('45','Cayman Airways');
+INSERT INTO AIRLINE VALUES('46','CEBU Pacific Air');
+INSERT INTO AIRLINE VALUES('47','China Airlines');
+INSERT INTO AIRLINE VALUES('48','China Eastern');
+INSERT INTO AIRLINE VALUES('49','China Southern');
+INSERT INTO AIRLINE VALUES('50','Condor');
+INSERT INTO AIRLINE VALUES('51','Copa Airlines');
+INSERT INTO AIRLINE VALUES('52','Egyptair');
+INSERT INTO AIRLINE VALUES('53','EL AL');
+INSERT INTO AIRLINE VALUES('54','Emirates');
+INSERT INTO AIRLINE VALUES('55','Ethiopian Airlines');
+INSERT INTO AIRLINE VALUES('56','Etihad');
+INSERT INTO AIRLINE VALUES('57','Eurowings');
+INSERT INTO INSURER VALUES('0','ACORD');
+INSERT INTO INSURER VALUES('1','Adler Insurance');
+INSERT INTO INSURER VALUES('2','Admiral');
+INSERT INTO INSURER VALUES('3','Adrian Flux');
+INSERT INTO INSURER VALUES('4','Ageas');
+INSERT INTO INSURER VALUES('5','AIG');
+INSERT INTO INSURER VALUES('6','Allianz');
+INSERT INTO INSURER VALUES('7','Allied World');
+INSERT INTO INSURER VALUES('8','Ambant');
+INSERT INTO INSURER VALUES('9','AmTrust');
+INSERT INTO INSURER VALUES('10','Aon');
+INSERT INTO INSURER VALUES('11','Aon Benfield');
+INSERT INTO INSURER VALUES('12','Aon Hewitt');
+INSERT INTO INSURER VALUES('13','Aon Risk Solutions');
+INSERT INTO INSURER VALUES('14','A-Plan');
+INSERT INTO INSURER VALUES('15','ARAG');
+INSERT INTO INSURER VALUES('16','Arch Insurance');
+INSERT INTO INSURER VALUES('17','Argo Group');
+INSERT INTO INSURER VALUES('18','Arista');
+INSERT INTO INSURER VALUES('19','Ascent');
+INSERT INTO INSURER VALUES('20','Aspen');
+INSERT INTO INSURER VALUES('21','Assurant');
+INSERT INTO INSURER VALUES('22','Aston Lark');
+INSERT INTO INSURER VALUES('23','Autonet');
+INSERT INTO INSURER VALUES('24','Aviva');
+INSERT INTO INSURER VALUES('25','AXA');
+INSERT INTO INSURER VALUES('26','AXA XL');
+INSERT INTO INSURER VALUES('27','Axiom Underwriting');
+INSERT INTO INSURER VALUES('28','AXIS Capital');
+INSERT INTO INSURER VALUES('29','Barbican');
+INSERT INTO INSURER VALUES('30','Be Wiser');
+INSERT INTO INSURER VALUES('31','Beazley');
+INSERT INTO INSURER VALUES('32','Beech Underwriting');
+INSERT INTO INSURER VALUES('33','Berkley');
+INSERT INTO INSURER VALUES('34','Berkshire Hathaway');
+INSERT INTO INSURER VALUES('35','Besso');
+INSERT INTO INSURER VALUES('36','BGL Group');
+INSERT INTO INSURER VALUES('37','Brassington');
+INSERT INTO INSURER VALUES('38','Bravo Group');
+INSERT INTO INSURER VALUES('39','Brightside');
+INSERT INTO INSURER VALUES('40','Brightside');
+INSERT INTO INSURER VALUES('41','Broker Direct');
+INSERT INTO INSURER VALUES('42','Broker Network');
+INSERT INTO INSURER VALUES('43','Bupa');
+INSERT INTO INSURER VALUES('44','Camberford');
+INSERT INTO INSURER VALUES('45','Canopius');
+INSERT INTO INSURER VALUES('46','Carole Nash');
+INSERT INTO INSURER VALUES('47','Castel');
+INSERT INTO INSURER VALUES('48','CFC Underwriting');
+INSERT INTO INSURER VALUES('49','Chubb');
+INSERT INTO INSURER VALUES('50','Churchill');
+INSERT INTO INSURER VALUES('51','CII');
+INSERT INTO INSURER VALUES('52','Citynet');
+INSERT INTO INSURER VALUES('53','CNA');
+INSERT INTO INSURER VALUES('54','Cobra Network');
+INSERT INTO INSURER VALUES('55','Compass');
+INSERT INTO INSURER VALUES('56','Co-op');
+INSERT INTO INSURER VALUES('57','Covea');
+INSERT INTO INSURER VALUES('58','Crawford and Company');
+INSERT INTO INSURER VALUES('59','Crawford and Company');
+INSERT INTO INSURER VALUES('60','DAS UK');
+INSERT INTO INSURER VALUES('61','Direct Line Group');
+INSERT INTO INSURER VALUES('62','DUAL');
+INSERT INTO INSURER VALUES('63','Ecclesiastical');
+INSERT INTO INSURER VALUES('64','Ed Broking');
+INSERT INTO INSURER VALUES('65','Endsleigh');
+INSERT INTO INSURER VALUES('66','Esure');
+INSERT INTO INSURER VALUES('67','Ethos Broking');
+INSERT INTO INSURER VALUES('68','First Central');
+INSERT INTO INSURER VALUES('69','FM Global');
+INSERT INTO INSURER VALUES('70','Gallagher');
+INSERT INTO INSURER VALUES('71','General Legal Protection');
+INSERT INTO INSURER VALUES('72','Generali');
+INSERT INTO INSURER VALUES('73','Geo Underwriting');
+INSERT INTO INSURER VALUES('74','Guy Carpenter');
+INSERT INTO INSURER VALUES('75','HandR Insurance');
+INSERT INTO INSURER VALUES('76','Hastings');
+INSERT INTO INSURER VALUES('77','HDI');
+INSERT INTO INSURER VALUES('78','Henderson');
+INSERT INTO INSURER VALUES('79','Hiscox');
+INSERT INTO INSURER VALUES('80','Howden');
+INSERT INTO INSURER VALUES('81','Hyperion Insurance Group');
+INSERT INTO INSURER VALUES('82','Ingenie');
+INSERT INTO INSURER VALUES('83','Integro');
+INSERT INTO INSURER VALUES('84','Ironshore');
+INSERT INTO INSURER VALUES('85','James Hallam');
+INSERT INTO INSURER VALUES('86','Jelf');
+INSERT INTO INSURER VALUES('87','JLT');
+INSERT INTO INSURER VALUES('88','Lancashire');
+INSERT INTO INSURER VALUES('89','Legal and General');
+INSERT INTO INSURER VALUES('90','Liberty Mutual');
+INSERT INTO INSURER VALUES('91','Lloyds');
+INSERT INTO INSURER VALUES('92','Lockton Companies');
+INSERT INTO INSURER VALUES('93','LV');
+INSERT INTO INSURER VALUES('94','Lycetts');
+INSERT INTO INSURER VALUES('95','Manchester Underwriting');
+INSERT INTO INSURER VALUES('96','Markel Corporation');
+INSERT INTO INSURER VALUES('97','Markerstudy');
+INSERT INTO INSURER VALUES('98','Marsh');
+INSERT INTO INSURER VALUES('99','Marsh McLennan');
+INSERT INTO INSURER VALUES('100','MCE');
+INSERT INTO INSURER VALUES('101','Mercer');
+INSERT INTO INSURER VALUES('102','MetLife');
+INSERT INTO INSURER VALUES('103','Miles Smith');
+INSERT INTO INSURER VALUES('104','Minova');
+INSERT INTO INSURER VALUES('105','More Than');
+INSERT INTO INSURER VALUES('106','MS Amlin');
+INSERT INTO INSURER VALUES('107','Munich Re');
+INSERT INTO INSURER VALUES('108','NFU Mutual');
+INSERT INTO INSURER VALUES('109','Obelisk Underwriting');
+INSERT INTO INSURER VALUES('110','Octo Telematics');
+INSERT INTO INSURER VALUES('111','OPUS Underwriting');
+INSERT INTO INSURER VALUES('112','Pardus Underwriting');
+INSERT INTO INSURER VALUES('113','Pen Underwriting');
+INSERT INTO INSURER VALUES('114','Pioneer Underwriting');
+INSERT INTO INSURER VALUES('115','Plum Underwriting');
+INSERT INTO INSURER VALUES('116','Portus');
+INSERT INTO INSURER VALUES('117','Prudential Plc');
+INSERT INTO INSURER VALUES('118','Pulse');
+INSERT INTO INSURER VALUES('119','QBE');
+INSERT INTO INSURER VALUES('120','Quindell');
+INSERT INTO INSURER VALUES('121','RFIB');
+INSERT INTO INSURER VALUES('122','RKH Specialty');
+INSERT INTO INSURER VALUES('123','RSA');
+INSERT INTO INSURER VALUES('124','Sabre Insurance');
+INSERT INTO INSURER VALUES('125','Saga');
+INSERT INTO INSURER VALUES('126','SCOR');
+INSERT INTO INSURER VALUES('127','Sedgwick');
+INSERT INTO INSURER VALUES('128','Simply Business');
+INSERT INTO INSURER VALUES('129','Sompo');
+INSERT INTO INSURER VALUES('130','Sportscover');
+INSERT INTO INSURER VALUES('131','Stackhouse Poland');
+INSERT INTO INSURER VALUES('132','Starr Companies');
+INSERT INTO INSURER VALUES('133','Staysure');
+INSERT INTO INSURER VALUES('134','Swiftcover');
+INSERT INTO INSURER VALUES('135','Swinton');
+INSERT INTO INSURER VALUES('136','Swiss Re');
+INSERT INTO INSURER VALUES('137','Tempo Underwriting');
+INSERT INTO INSURER VALUES('138','The AA');
+INSERT INTO INSURER VALUES('139','Thistle Insurance');
+INSERT INTO INSURER VALUES('140','Thomas Carroll');
+INSERT INTO INSURER VALUES('141','Tokio Marine');
+INSERT INTO INSURER VALUES('142','Touchstone Underwriting');
+INSERT INTO INSURER VALUES('143','Towergate Underwriting');
+INSERT INTO INSURER VALUES('144','Travelers');
+INSERT INTO INSURER VALUES('145','UK General');
+INSERT INTO INSURER VALUES('146','UK Insurance');
+INSERT INTO INSURER VALUES('147','Willis Towers Watson');
+INSERT INTO INSURER VALUES('148','Zurich');
+INSERT INTO HOTEL VALUES('0','The Venetian','3','356');
+INSERT INTO HOTEL VALUES('1','Spotlight Hotel','2','280');
+INSERT INTO HOTEL VALUES('2','The Mississippi Hotel','5','124');
+INSERT INTO HOTEL VALUES('3','Green Tortoise Hostel','2','249');
+INSERT INTO HOTEL VALUES('4','The Orchard Hotel','3','142');
+INSERT INTO HOTEL VALUES('5','Spring Brook','5','325');
+INSERT INTO HOTEL VALUES('6','Hotel Agoura','4','123');
+INSERT INTO HOTEL VALUES('7','Wonder Hill Inn','5','58');
+INSERT INTO HOTEL VALUES('8','The New Yorker','1','306');
+INSERT INTO HOTEL VALUES('9','Beachwalk Resort','5','88');
+INSERT INTO HOTEL VALUES('10','Etiquette Suites','4','204');
+INSERT INTO HOTEL VALUES('11','Water Vibe Resorts','5','252');
+INSERT INTO HOTEL VALUES('12','Consulate Hotel','1','370');
+INSERT INTO HOTEL VALUES('13','Quaint Motel','1','0');
+INSERT INTO HOTEL VALUES('14','Cape Grace','5','295');
+INSERT INTO HOTEL VALUES('15','Fountain Fun','2','130');
+INSERT INTO HOTEL VALUES('16','Element','2','189');
+INSERT INTO HOTEL VALUES('17','The New View','2','188');
+INSERT INTO HOTEL VALUES('18','White Season Resort','2','143');
+INSERT INTO HOTEL VALUES('19','Hotel Occazia','2','306');
+INSERT INTO HOTEL VALUES('20','Purple Orchid','3','254');
+INSERT INTO HOTEL VALUES('21','Prestige proga Inn','5','31');
+INSERT INTO HOTEL VALUES('22','The Manhattan','4','4');
+INSERT INTO HOTEL VALUES('23','Lime Wood','5','123');
+INSERT INTO HOTEL VALUES('24','Parallel Shine','4','18');
+INSERT INTO HOTEL VALUES('25','The Glory Hotel','2','52');
+INSERT INTO HOTEL VALUES('26','The Mutiny Hotel','4','251');
+INSERT INTO HOTEL VALUES('27','The Huntington Hotel','2','94');
+INSERT INTO HOTEL VALUES('28','Towne Place Suites','3','278');
+INSERT INTO HOTEL VALUES('29','Cosmopolitan Hotel','5','250');
+INSERT INTO HOTEL VALUES('30','Eden Roc','5','57');
+INSERT INTO HOTEL VALUES('31','Coastal bay hotel','1','114');
+INSERT INTO HOTEL VALUES('32','Dream Connect','3','375');
+INSERT INTO HOTEL VALUES('33','Purple Orchid','4','92');
+INSERT INTO HOTEL VALUES('34','The Palazzo Resort','4','134');
+INSERT INTO HOTEL VALUES('35','The White Rock Hotel','5','326');
+INSERT INTO HOTEL VALUES('36','The Hot Springs Hotel','5','31');
+INSERT INTO HOTEL VALUES('37','Venture Hotel','5','223');
+INSERT INTO HOTEL VALUES('38','The Lakefront','4','145');
+INSERT INTO HOTEL VALUES('39','The Peninsula','1','44');
+INSERT INTO HOTEL VALUES('40','The Lakefront','3','89');
+INSERT INTO HOTEL VALUES('41','Always Welcome','5','207');
+INSERT INTO HOTEL VALUES('42','Tower Hotel','2','228');
+INSERT INTO HOTEL VALUES('43','Sunny Canopy','4','134');
+INSERT INTO HOTEL VALUES('44','Royal Galaxy','1','36');
+INSERT INTO HOTEL VALUES('45','The Watson Hotel','2','90');
+INSERT INTO HOTEL VALUES('46','Treebones Resort','2','52');
+INSERT INTO HOTEL VALUES('47','Waypoint','1','112');
+INSERT INTO HOTEL VALUES('48','The Eternity Resort','1','164');
+INSERT INTO AIRPLANE VALUES('0','Tu–70','44','447');
+INSERT INTO AIRPLANE VALUES('1','DC–3','13','462');
+INSERT INTO AIRPLANE VALUES('2','An–148','0','119');
+INSERT INTO AIRPLANE VALUES('3','McDonnell Douglas MD–90','34','430');
+INSERT INTO AIRPLANE VALUES('4','Convair 990','12','343');
+INSERT INTO AIRPLANE VALUES('5','Airbus A310','54','346');
+INSERT INTO AIRPLANE VALUES('6','An–38','27','354');
+INSERT INTO AIRPLANE VALUES('7','McDonnell Douglas MD–80','17','134');
+INSERT INTO AIRPLANE VALUES('8','DC–6','49','298');
+INSERT INTO AIRPLANE VALUES('9','Convair CV–240','51','373');
+INSERT INTO AIRPLANE VALUES('10','Tu–154','36','108');
+INSERT INTO AIRPLANE VALUES('11','DC–3','27','462');
+INSERT INTO AIRPLANE VALUES('12','Tu–204','5','371');
+INSERT INTO AIRPLANE VALUES('13','DC–6','26','298');
+INSERT INTO AIRPLANE VALUES('14','An–148','49','119');
+INSERT INTO AIRPLANE VALUES('15','Tu–334','53','209');
+INSERT INTO AIRPLANE VALUES('16','Szuhoj Superjet 100','7','371');
+INSERT INTO AIRPLANE VALUES('17','Airbus A350 XWB','3','468');
+INSERT INTO AIRPLANE VALUES('18','An–140','38','485');
+INSERT INTO AIRPLANE VALUES('19','DC–4','40','247');
+INSERT INTO AIRPLANE VALUES('20','Tu–124','26','150');
+INSERT INTO AIRPLANE VALUES('21','Tu–204','6','371');
+INSERT INTO AIRPLANE VALUES('22','An–38','11','354');
+INSERT INTO AIRPLANE VALUES('23','Tu–334','5','209');
+INSERT INTO AIRPLANE VALUES('24','Airbus A340','41','281');
+INSERT INTO AIRPLANE VALUES('25','McDonnell Douglas DC–9','30','183');
+INSERT INTO AIRPLANE VALUES('26','Airbus A380','6','404');
+INSERT INTO AIRPLANE VALUES('27','Tu–144','5','243');
+INSERT INTO AIRPLANE VALUES('28','Tu–134','28','242');
+INSERT INTO AIRPLANE VALUES('29','Tu–134','12','242');
+INSERT INTO AIRPLANE VALUES('30','Szuhoj Superjet 100','21','371');
+INSERT INTO AIRPLANE VALUES('31','Tu–204','57','371');
+INSERT INTO AIRPLANE VALUES('32','Airbus A350 XWB','8','468');
+INSERT INTO AIRPLANE VALUES('33','An–148','35','119');
+INSERT INTO AIRPLANE VALUES('34','Convair 990','57','343');
+INSERT INTO AIRPLANE VALUES('35','DC–6','56','298');
+INSERT INTO AIRPLANE VALUES('36','Tu–104','16','131');
+INSERT INTO AIRPLANE VALUES('37','McDonnell Douglas MD–90','49','430');
+INSERT INTO AIRPLANE VALUES('38','Tu–154','4','108');
+INSERT INTO AIRPLANE VALUES('39','Tu–104','50','131');
+INSERT INTO AIRPLANE VALUES('40','Airbus A300','37','144');
+INSERT INTO AIRPLANE VALUES('41','Convair 880','28','478');
+INSERT INTO AIRPLANE VALUES('42','Szu–80','2','410');
+INSERT INTO AIRPLANE VALUES('43','McDonnell Douglas MD–80','40','134');
+INSERT INTO AIRPLANE VALUES('44','Airbus A310','29','346');
+INSERT INTO AIRPLANE VALUES('45','McDonnell Douglas MD–90','50','430');
+INSERT INTO AIRPLANE VALUES('46','Szu–80','54','410');
+INSERT INTO AIRPLANE VALUES('47','Tu–114','4','270');
+INSERT INTO AIRPLANE VALUES('48','Piper PA–46 Malibu','42','271');
+INSERT INTO AIRPLANE VALUES('49','Piper PA–46 Malibu','36','271');
+INSERT INTO TRIP VALUES('0','111','200','190883', '19', '1', TO_DATE('27/07/2022 22:56:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('28/07/2022 18:49:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('1','181','376','73871', '28', '0', TO_DATE('19/06/2022 04:04:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('19/06/2022 18:36:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('2','54','291','106056', '23', '1', TO_DATE('28/06/2022 23:26:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('29/06/2022 03:08:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('3','218','79','237453', '29', '0', TO_DATE('23/06/2022 07:50:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('24/06/2022 03:47:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('4','63','312','136687', '18', '1', TO_DATE('08/07/2022 05:39:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('09/07/2022 01:52:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('5','206','57','113420', '38', '1', TO_DATE('31/05/2022 08:15:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('01/06/2022 02:37:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('6','319','238','234822', '23', '1', TO_DATE('24/06/2022 17:10:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('25/06/2022 05:36:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('7','245','279','114373', '3', '0', TO_DATE('29/07/2022 00:15:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('29/07/2022 18:54:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('8','261','114','47421', '49', '1', TO_DATE('19/07/2022 00:02:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('19/07/2022 12:34:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('9','174','205','121397', '18', '0', TO_DATE('04/07/2022 09:03:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('04/07/2022 17:46:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('10','24','210','244518', '3', '1', TO_DATE('03/05/2022 09:11:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('03/05/2022 15:11:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('11','242','85','208223', '14', '0', TO_DATE('20/06/2022 16:23:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('20/06/2022 23:48:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('12','14','3','41180', '42', '1', TO_DATE('19/05/2022 07:08:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('19/05/2022 12:45:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('13','266','71','64861', '47', '1', TO_DATE('15/05/2022 11:07:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('15/05/2022 21:26:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('14','190','289','83643', '17', '1', TO_DATE('28/07/2022 23:10:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('29/07/2022 16:59:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('15','156','384','186066', '23', '0', TO_DATE('28/07/2022 20:11:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('29/07/2022 03:23:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('16','310','53','107053', '19', '0', TO_DATE('17/07/2022 21:08:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('18/07/2022 02:23:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('17','377','61','186476', '9', '0', TO_DATE('08/06/2022 07:33:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('08/06/2022 16:08:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('18','46','137','219314', '45', '0', TO_DATE('28/05/2022 14:39:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('28/05/2022 18:30:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('19','376','320','283243', '41', '0', TO_DATE('03/06/2022 20:37:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('04/06/2022 03:00:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('20','16','370','283709', '25', '0', TO_DATE('16/07/2022 21:38:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('17/07/2022 16:31:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('21','378','235','123631', '27', '1', TO_DATE('19/07/2022 16:00:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('20/07/2022 08:10:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('22','132','235','232310', '17', '0', TO_DATE('13/07/2022 17:49:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('13/07/2022 21:57:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('23','134','350','188130', '8', '1', TO_DATE('10/06/2022 17:09:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('11/06/2022 12:33:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('24','48','8','240310', '6', '1', TO_DATE('31/05/2022 06:15:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('31/05/2022 11:43:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('25','136','32','282116', '19', '1', TO_DATE('14/05/2022 18:26:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('15/05/2022 02:35:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('26','320','37','298259', '27', '1', TO_DATE('17/06/2022 16:20:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('18/06/2022 08:59:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('27','143','66','267392', '24', '0', TO_DATE('28/04/2022 09:56:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('28/04/2022 16:40:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('28','98','118','249553', '14', '1', TO_DATE('13/05/2022 10:25:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('13/05/2022 14:56:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('29','95','160','188708', '11', '1', TO_DATE('28/06/2022 03:32:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('28/06/2022 11:45:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('30','187','352','227781', '2', '1', TO_DATE('15/06/2022 05:17:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('15/06/2022 17:30:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('31','70','119','122798', '49', '0', TO_DATE('31/05/2022 19:03:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('01/06/2022 04:23:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('32','358','98','261978', '30', '1', TO_DATE('24/06/2022 01:04:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('24/06/2022 09:13:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('33','250','5','106998', '31', '1', TO_DATE('19/06/2022 06:13:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('19/06/2022 21:48:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('34','75','382','47934', '20', '1', TO_DATE('19/06/2022 02:49:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('19/06/2022 21:21:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('35','128','196','227439', '5', '0', TO_DATE('24/07/2022 15:14:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('25/07/2022 06:44:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('36','20','222','211755', '32', '1', TO_DATE('03/06/2022 22:10:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('04/06/2022 11:11:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('37','128','289','63426', '3', '0', TO_DATE('18/06/2022 21:18:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('19/06/2022 03:37:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('38','378','210','290510', '31', '0', TO_DATE('20/06/2022 14:37:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('20/06/2022 20:35:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('39','195','252','47646', '35', '1', TO_DATE('03/06/2022 22:57:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('04/06/2022 03:50:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('40','289','99','250374', '36', '1', TO_DATE('22/05/2022 05:19:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('23/05/2022 00:24:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('41','24','174','264293', '32', '0', TO_DATE('04/07/2022 12:14:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('05/07/2022 03:11:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('42','29','164','125029', '40', '1', TO_DATE('27/07/2022 11:25:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('27/07/2022 14:50:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('43','123','148','244900', '19', '0', TO_DATE('15/07/2022 03:17:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('15/07/2022 18:00:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('44','247','105','259486', '7', '0', TO_DATE('13/05/2022 05:19:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('13/05/2022 15:25:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('45','133','342','188674', '24', '0', TO_DATE('28/06/2022 04:11:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('29/06/2022 00:37:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('46','373','160','124581', '38', '0', TO_DATE('06/06/2022 21:16:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('07/06/2022 11:59:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('47','253','186','113610', '36', '0', TO_DATE('30/06/2022 10:13:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('30/06/2022 13:34:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('48','198','180','289246', '36', '1', TO_DATE('09/06/2022 20:56:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('10/06/2022 16:43:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TRIP VALUES('49','110','31','276904', '45', '0', TO_DATE('10/06/2022 03:55:55', 'DD/MM/YYYY HH24:MI:SS'), TO_DATE('10/06/2022 14:15:55', 'DD/MM/YYYY HH24:MI:SS'));
+INSERT INTO TICKET VALUES('38','8','11');
+INSERT INTO TICKET VALUES('1','21','9');
+INSERT INTO TICKET VALUES('16','39','40');
+INSERT INTO TICKET VALUES('46','3','41');
+INSERT INTO TICKET VALUES('33','21','40');
+INSERT INTO TICKET VALUES('34','5','33');
+INSERT INTO TICKET VALUES('47','24','14');
+INSERT INTO TICKET VALUES('18','49','46');
+INSERT INTO TICKET VALUES('17','14','46');
+INSERT INTO TICKET VALUES('39','23','39');
+INSERT INTO TICKET VALUES('44','21','34');
+INSERT INTO TICKET VALUES('38','3','1');
+INSERT INTO TICKET VALUES('34','23','19');
+INSERT INTO TICKET VALUES('7','46','49');
+INSERT INTO TICKET VALUES('42','12','45');
+INSERT INTO TICKET VALUES('44','44','31');
+INSERT INTO TICKET VALUES('25','12','39');
+INSERT INTO TICKET VALUES('24','1','25');
+INSERT INTO TICKET VALUES('30','6','16');
+INSERT INTO TICKET VALUES('1','5','9');
+INSERT INTO TICKET VALUES('38','21','3');
+INSERT INTO TICKET VALUES('31','18','39');
+INSERT INTO TICKET VALUES('45','27','23');
+INSERT INTO TICKET VALUES('46','16','40');
+INSERT INTO TICKET VALUES('9','19','21');
+INSERT INTO TICKET VALUES('4','14','32');
+INSERT INTO TICKET VALUES('44','8','19');
+INSERT INTO TICKET VALUES('41','23','28');
+INSERT INTO TICKET VALUES('3','37','35');
+INSERT INTO TICKET VALUES('35','3','21');
+INSERT INTO TICKET VALUES('22','29','42');
+INSERT INTO TICKET VALUES('0','34','9');
+INSERT INTO TICKET VALUES('34','36','24');
+INSERT INTO TICKET VALUES('20','8','12');
+INSERT INTO TICKET VALUES('25','49','45');
+INSERT INTO TICKET VALUES('31','0','34');
+INSERT INTO TICKET VALUES('33','3','20');
+INSERT INTO TICKET VALUES('22','47','11');
+INSERT INTO TICKET VALUES('18','8','37');
+INSERT INTO TICKET VALUES('8','24','38');
+INSERT INTO TICKET VALUES('42','28','8');
+INSERT INTO TICKET VALUES('6','2','26');
+INSERT INTO TICKET VALUES('14','2','34');
+INSERT INTO TICKET VALUES('27','44','13');
+INSERT INTO TICKET VALUES('20','12','16');
+INSERT INTO TICKET VALUES('42','10','33');
+INSERT INTO TICKET VALUES('38','39','21');
+INSERT INTO TICKET VALUES('35','25','33');
+INSERT INTO TICKET VALUES('10','36','36');
+INSERT INTO TICKET VALUES('6','36','10');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('0','6','13','Valamilyen biztosítás','48740');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('1','146','46','Valamilyen biztosítás','75838');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('2','134','37','Valamilyen biztosítás','97043');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('3','104','11','Valamilyen biztosítás','74893');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('4','31','43','Valamilyen biztosítás','86614');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('5','52','19','Valamilyen biztosítás','93015');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('6','58','33','Valamilyen biztosítás','35854');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('7','107','32','Valamilyen biztosítás','70831');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('8','103','19','Valamilyen biztosítás','81625');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('9','104','49','Valamilyen biztosítás','45743');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('10','110','48','Valamilyen biztosítás','54115');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('11','118','49','Valamilyen biztosítás','71585');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('12','86','12','Valamilyen biztosítás','50697');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('13','65','47','Valamilyen biztosítás','61095');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('14','31','14','Valamilyen biztosítás','95689');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('15','98','49','Valamilyen biztosítás','97547');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('16','117','48','Valamilyen biztosítás','36766');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('17','73','5','Valamilyen biztosítás','44622');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('18','56','39','Valamilyen biztosítás','89352');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('19','117','26','Valamilyen biztosítás','25340');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('20','108','13','Valamilyen biztosítás','56958');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('21','134','40','Valamilyen biztosítás','23725');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('22','60','8','Valamilyen biztosítás','14429');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('23','88','3','Valamilyen biztosítás','84884');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('24','103','34','Valamilyen biztosítás','15905');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('25','146','46','Valamilyen biztosítás','15883');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('26','76','45','Valamilyen biztosítás','57070');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('27','109','30','Valamilyen biztosítás','23215');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('28','129','45','Valamilyen biztosítás','52626');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('29','71','44','Valamilyen biztosítás','12716');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('30','14','22','Valamilyen biztosítás','12291');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('31','140','21','Valamilyen biztosítás','68799');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('32','144','30','Valamilyen biztosítás','48414');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('33','39','6','Valamilyen biztosítás','33937');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('34','41','33','Valamilyen biztosítás','95299');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('35','75','12','Valamilyen biztosítás','89571');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('36','58','12','Valamilyen biztosítás','58533');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('37','120','3','Valamilyen biztosítás','39151');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('38','121','29','Valamilyen biztosítás','30285');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('39','27','46','Valamilyen biztosítás','72119');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('40','122','31','Valamilyen biztosítás','20788');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('41','97','30','Valamilyen biztosítás','46367');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('42','85','38','Valamilyen biztosítás','52652');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('43','85','23','Valamilyen biztosítás','51102');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('44','122','21','Valamilyen biztosítás','24771');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('45','40','13','Valamilyen biztosítás','25110');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('46','34','48','Valamilyen biztosítás','59069');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('47','20','31','Valamilyen biztosítás','78331');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('48','76','49','Valamilyen biztosítás','67946');
+INSERT INTO RECOMMENDED_INSURANCE VALUES('49','88','44','Valamilyen biztosítás','77676');
+INSERT INTO INSURANCE VALUES('0','30','37','91729');
+INSERT INTO INSURANCE VALUES('1','31','15','79361');
+INSERT INTO INSURANCE VALUES('2','29','33','12569');
+INSERT INTO INSURANCE VALUES('3','43','23','30123');
+INSERT INTO INSURANCE VALUES('4','36','28','53670');
+INSERT INTO INSURANCE VALUES('5','27','6','25532');
+INSERT INTO INSURANCE VALUES('6','25','5','41853');
+INSERT INTO INSURANCE VALUES('7','45','30','45038');
+INSERT INTO INSURANCE VALUES('8','49','29','38820');
+INSERT INTO INSURANCE VALUES('9','5','27','34109');
+INSERT INTO INSURANCE VALUES('10','25','4','13637');
+INSERT INTO INSURANCE VALUES('11','9','0','37049');
+INSERT INTO INSURANCE VALUES('12','39','15','11502');
+INSERT INTO INSURANCE VALUES('13','36','8','88991');
+INSERT INTO INSURANCE VALUES('14','30','40','29546');
+INSERT INTO INSURANCE VALUES('15','10','36','88615');
+INSERT INTO INSURANCE VALUES('16','34','46','66255');
+INSERT INTO INSURANCE VALUES('17','4','36','64508');
+INSERT INTO INSURANCE VALUES('18','9','26','97169');
+INSERT INTO INSURANCE VALUES('19','35','28','48093');
+INSERT INTO INSURANCE VALUES('20','37','36','12546');
+INSERT INTO INSURANCE VALUES('21','20','32','79720');
+INSERT INTO INSURANCE VALUES('22','6','1','29472');
+INSERT INTO INSURANCE VALUES('23','35','5','97989');
+INSERT INTO INSURANCE VALUES('24','32','39','71073');
+INSERT INTO INSURANCE VALUES('25','35','44','83019');
+INSERT INTO INSURANCE VALUES('26','45','10','99992');
+INSERT INTO INSURANCE VALUES('27','21','37','24337');
+INSERT INTO INSURANCE VALUES('28','14','27','53072');
+INSERT INTO INSURANCE VALUES('29','16','37','27599');
+INSERT INTO INSURANCE VALUES('30','39','34','33028');
+INSERT INTO INSURANCE VALUES('31','2','44','61374');
+INSERT INTO INSURANCE VALUES('32','38','47','97325');
+INSERT INTO INSURANCE VALUES('33','11','15','27390');
+INSERT INTO INSURANCE VALUES('34','1','34','83940');
+INSERT INTO INSURANCE VALUES('35','44','34','20198');
+INSERT INTO INSURANCE VALUES('36','49','27','64685');
+INSERT INTO INSURANCE VALUES('37','2','10','19165');
+INSERT INTO INSURANCE VALUES('38','2','29','99668');
+INSERT INTO INSURANCE VALUES('39','44','14','73238');
+INSERT INTO INSURANCE VALUES('40','9','3','49567');
+INSERT INTO INSURANCE VALUES('41','10','6','76822');
+INSERT INTO INSURANCE VALUES('42','47','37','96356');
+INSERT INTO INSURANCE VALUES('43','19','26','21647');
+INSERT INTO INSURANCE VALUES('44','20','35','32914');
+INSERT INTO INSURANCE VALUES('45','1','22','89754');
+INSERT INTO INSURANCE VALUES('46','33','6','28142');
+INSERT INTO INSURANCE VALUES('47','19','32','19184');
+INSERT INTO INSURANCE VALUES('48','5','23','72531');
+INSERT INTO INSURANCE VALUES('49','7','32','42635');
